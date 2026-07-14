@@ -1,7 +1,6 @@
 // server/index.js
 const { fetchPrices } = require('./bybit');
 const { generateSignal } = require('./signals');
-const fetch = require('node-fetch');
 
 const CONFIG = {
   RSI_BUY: 30, RSI_SELL: 70,
@@ -21,14 +20,22 @@ const openTrades = [];
 
 async function getSymbols() {
   try {
-    const res = await fetch('https://api.bybit.com/v5/market/tickers?category=spot');
+    const res = await fetch('https://api.binance.com/api/v3/ticker/24hr');
     const data = await res.json();
-    if (data.retCode !== 0 || !data.result?.list) return [];
-    return data.result.list
+    
+    if (!Array.isArray(data)) {
+      console.error('Ответ не массив');
+      return [];
+    }
+    
+    const symbols = data
       .filter(t => t.symbol.endsWith('USDT'))
-      .sort((a, b) => parseFloat(b.volume24h) - parseFloat(a.volume24h))
+      .sort((a, b) => parseFloat(b.volume) - parseFloat(a.volume))
       .slice(0, 150)
-      .map(t => t.symbol);
+      .map(t => t.symbol.replace('USDT', '/USDT'));
+    
+    console.log(`📊 Загружено ${symbols.length} символов`);
+    return symbols;
   } catch (e) {
     console.error('Ошибка символов:', e.message);
     return [];
@@ -127,7 +134,6 @@ server.listen(PORT, () => {
 
 (async () => {
   const symbols = await getSymbols();
-  console.log(`📊 Загружено ${symbols.length} активов`);
   
   setInterval(async () => {
     const tickers = await fetchPrices(symbols);
