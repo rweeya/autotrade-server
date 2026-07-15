@@ -6,7 +6,7 @@ const CONFIG = {
   RSI_BUY: 30, RSI_SELL: 70,
   STOCH_BUY: 20, STOCH_SELL: 80,
   ADX_MIN: 25,
-  TP_PERCENT: 4.0, SL_PERCENT: 1.5,
+  TP_PERCENT: 2.0, SL_PERCENT: 0.5,
   MAX_POSITIONS: 10,
   COOLDOWN: 120000,
   RISK_PERCENT: 3
@@ -19,27 +19,33 @@ const lastTradeTime = new Map();
 const openTrades = [];
 
 async function getSymbols() {
-  try {
-    const res = await fetch('https://api.binance.com/api/v3/ticker/24hr');
-    const data = await res.json();
-    
-    if (!Array.isArray(data)) {
-      console.error('Ответ не массив');
-      return [];
+  const urls = [
+    'https://api.binance.com/api/v3/ticker/24hr',
+    'https://api1.binance.com/api/v3/ticker/24hr',
+    'https://api2.binance.com/api/v3/ticker/24hr',
+    'https://api3.binance.com/api/v3/ticker/24hr',
+  ];
+  
+  for (const url of urls) {
+    try {
+      const res = await fetch(url);
+      const data = await res.json();
+      if (!Array.isArray(data)) continue;
+      
+      const symbols = data
+        .filter(t => t.symbol.endsWith('USDT'))
+        .sort((a, b) => parseFloat(b.volume) - parseFloat(a.volume))
+        .slice(0, 150)
+        .map(t => t.symbol.replace('USDT', '/USDT'));
+      
+      console.log(`📊 Загружено ${symbols.length} символов`);
+      return symbols;
+    } catch (e) {
+      continue;
     }
-    
-    const symbols = data
-      .filter(t => t.symbol.endsWith('USDT'))
-      .sort((a, b) => parseFloat(b.volume) - parseFloat(a.volume))
-      .slice(0, 150)
-      .map(t => t.symbol.replace('USDT', '/USDT'));
-    
-    console.log(`📊 Загружено ${symbols.length} символов`);
-    return symbols;
-  } catch (e) {
-    console.error('Ошибка символов:', e.message);
-    return [];
   }
+  console.error('Не удалось получить символы');
+  return [];
 }
 
 function updatePrice(symbol, price) {
@@ -95,14 +101,14 @@ function checkTPSL() {
     if (t.side === 'buy') {
       if (cp >= t.tpPrice) { shouldClose = true; reason = 'TP'; }
       else if (cp <= t.slPrice) { shouldClose = true; reason = 'SL'; }
-      else if (!t.breakevenActivated && cp >= t.entryPrice * 1.016) {
+      else if (!t.breakevenActivated && cp >= t.entryPrice * 1.01) {
         t.slPrice = t.entryPrice;
         t.breakevenActivated = true;
       }
     } else {
       if (cp <= t.tpPrice) { shouldClose = true; reason = 'TP'; }
       else if (cp >= t.slPrice) { shouldClose = true; reason = 'SL'; }
-      else if (!t.breakevenActivated && cp <= t.entryPrice * 0.984) {
+      else if (!t.breakevenActivated && cp <= t.entryPrice * 0.99) {
         t.slPrice = t.entryPrice;
         t.breakevenActivated = true;
       }
