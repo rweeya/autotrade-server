@@ -21,15 +21,28 @@ const openTrades = [];
 async function getSymbols() {
   try {
     const res = await fetch('https://api.mexc.com/api/v3/ticker/24hr');
-    const data = await res.json();
+    const text = await res.text();
+    console.log('MEXC ответ (первые 300 символов):', text.substring(0, 300));
+    
+    const data = JSON.parse(text);
     
     if (!Array.isArray(data)) {
-      console.error('Ошибка MEXC: ответ не массив');
+      console.error('Не массив. Тип:', typeof data);
+      if (data.data && Array.isArray(data.data)) {
+        console.log('Нашли массив в data.data');
+        const symbols = data.data
+          .filter(t => t.symbol && t.symbol.endsWith('USDT'))
+          .sort((a, b) => parseFloat(b.volume) - parseFloat(a.volume))
+          .slice(0, 150)
+          .map(t => t.symbol);
+        console.log(`📊 Загружено ${symbols.length} символов (из data.data)`);
+        return symbols;
+      }
       return [];
     }
     
     const symbols = data
-      .filter(t => t.symbol.endsWith('USDT'))
+      .filter(t => t.symbol && t.symbol.endsWith('USDT'))
       .sort((a, b) => parseFloat(b.volume) - parseFloat(a.volume))
       .slice(0, 150)
       .map(t => t.symbol);
