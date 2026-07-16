@@ -19,33 +19,27 @@ const lastTradeTime = new Map();
 const openTrades = [];
 
 async function getSymbols() {
-  const urls = [
-    'https://api.binance.com/api/v3/ticker/24hr',
-    'https://api1.binance.com/api/v3/ticker/24hr',
-    'https://api2.binance.com/api/v3/ticker/24hr',
-    'https://api3.binance.com/api/v3/ticker/24hr',
-  ];
-  
-  for (const url of urls) {
-    try {
-      const res = await fetch(url);
-      const data = await res.json();
-      if (!Array.isArray(data)) continue;
-      
-      const symbols = data
-        .filter(t => t.symbol.endsWith('USDT'))
-        .sort((a, b) => parseFloat(b.volume) - parseFloat(a.volume))
-        .slice(0, 150)
-        .map(t => t.symbol.replace('USDT', '/USDT'));
-      
-      console.log(`📊 Загружено ${symbols.length} символов`);
-      return symbols;
-    } catch (e) {
-      continue;
+  try {
+    const res = await fetch('https://api.bybit.com/v5/market/tickers?category=spot');
+    const data = await res.json();
+    
+    if (data.retCode !== 0 || !data.result?.list) {
+      console.error('Ошибка Bybit:', data.retMsg);
+      return [];
     }
+    
+    const symbols = data.result.list
+      .filter(t => t.symbol.endsWith('USDT'))
+      .sort((a, b) => parseFloat(b.volume24h) - parseFloat(a.volume24h))
+      .slice(0, 150)
+      .map(t => t.symbol);
+    
+    console.log(`📊 Загружено ${symbols.length} символов`);
+    return symbols;
+  } catch (e) {
+    console.error('Ошибка символов:', e.message);
+    return [];
   }
-  console.error('Не удалось получить символы');
-  return [];
 }
 
 function updatePrice(symbol, price) {
@@ -104,6 +98,7 @@ function checkTPSL() {
       else if (!t.breakevenActivated && cp >= t.entryPrice * 1.01) {
         t.slPrice = t.entryPrice;
         t.breakevenActivated = true;
+        console.log(`🔒 Безубыток: ${t.symbol}`);
       }
     } else {
       if (cp <= t.tpPrice) { shouldClose = true; reason = 'TP'; }
@@ -111,6 +106,7 @@ function checkTPSL() {
       else if (!t.breakevenActivated && cp <= t.entryPrice * 0.99) {
         t.slPrice = t.entryPrice;
         t.breakevenActivated = true;
+        console.log(`🔒 Безубыток: ${t.symbol}`);
       }
     }
     
