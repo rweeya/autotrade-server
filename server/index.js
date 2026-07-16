@@ -20,17 +20,17 @@ const openTrades = [];
 
 async function getSymbols() {
   try {
-    const res = await fetch('https://api.bybit.com/v5/market/tickers?category=spot');
+    const res = await fetch('https://api.mexc.com/api/v3/ticker/24hr');
     const data = await res.json();
     
-    if (data.retCode !== 0 || !data.result?.list) {
-      console.error('Ошибка Bybit:', data.retMsg);
+    if (!Array.isArray(data)) {
+      console.error('Ошибка MEXC: ответ не массив');
       return [];
     }
     
-    const symbols = data.result.list
+    const symbols = data
       .filter(t => t.symbol.endsWith('USDT'))
-      .sort((a, b) => parseFloat(b.volume24h) - parseFloat(a.volume24h))
+      .sort((a, b) => parseFloat(b.volume) - parseFloat(a.volume))
       .slice(0, 150)
       .map(t => t.symbol);
     
